@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "UPRM Debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "scripts/test_time_compute.py",
+            "args": [
+                "recipes/Llama-3.2-1B-Instruct/best_of_n.yaml",
+                "--n=32",
+                "--num_samples=500",
+                "--seed=0",
+                "--prm_path=agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters",
+                "--prm_batch_size=4",
+                "--search_batch_size=15",
+                "--gpu_memory_utilization=0.15",
+                "--output_dir=/mlbio_scratch/panigrah/search_and_learn/data/Llama-3.2-1B-Instruct/Qwen2.5-14B-Instruct-uPRM-T80-adapters",
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0"
+            }
+        }
+    ]
+}
