@@ -21,7 +21,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 extras = {}
 extras["quality"] = ["ruff", "isort"]
 extras["tests"] = ["pytest"]
-extras["dev"] = ["vllm==0.6.3"] + extras["quality"] + extras["tests"]
+extras["dev"] = ["vllm==0.11.0"] + extras["quality"] + extras["tests"]
 extras["trl"] = "trl @ git+https://github.com/huggingface/trl.git"
 
 install_requires = [

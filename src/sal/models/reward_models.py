@@ -423,6 +423,169 @@ class Qwen_2_5_Math_7B(Qwen_2_5_Math):
         prm_model_path = "Qwen/Qwen2.5-Math-PRM-7B"
         return Qwen_2_5_Math._load_model_and_tokenizer(prm_model_path, **model_kwargs)
 
+class UPRM(PRM):
+    def load_model_and_tokenizer(
+        self, **model_kwargs
+    ) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.search_config.prm_path,
+            trust_remote_code=True,
+        )
+        model = AutoModel.from_pretrained(
+            self.search_config.prm_path,
+            device_map="auto", # ISSUE: with auto, the model loads on CPU
+            torch_dtype="bfloat16",
+            attn_implementation="flash_attention_2",
+            trust_remote_code=True,
+            **model_kwargs,
+        ).eval()
+
+        model.to("cuda:0")
+
+        return model, tokenizer
+
+    def score(
+        self,
+        questions: list[str],
+        outputs: list[list[str]],
+        batched: bool = True,
+        batch_size=8,
+    ) -> list[list[float]]:
+        if batched is True:
+            return self._score_batched(questions, outputs, batch_size=batch_size)
+        else:
+            return self._score_single(questions, outputs)
+
+    def _score_single(self, questions: list[str], outputs: list[list[str]]):
+        DEFAULT_SYSTEM_PROMPT = """You are a strict mathematical reasoning judge.
+
+        Your task is to evaluate one individual reasoning step of a math problem at a time.
+
+        - If the step is mathematically correct, respond with `+`.  
+        - If the step is mathematically incorrect or logically flawed, respond with `-`.  
+        - Do not provide any explanation, comment, or feedback — only respond with `+` or `-`, and nothing else.  
+        - Each input is either a single reasoning step or a new problem followed by its first reasoning step. In both cases, evaluate only the validity of the reasoning step.
+        - For each new problem, once you determine that a step is incorrect, you must consider all subsequent steps for that problem to also be incorrect, and respond with `-` for them as well.
+
+        Your response must only be one of these two symbols: `+` or `-`.
+        """
+
+        all_scores = []
+        step_sep_id = self.tokenizer.encode("<|*|>")[0]
+
+        for question, answers in zip(questions, outputs, strict=True):
+            all_step_scores = []
+            for ans in answers:
+                messages = [
+                    {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
+                ]
+                ans_list = ans.split("\n\n")
+                for k in range(len(ans_list)):
+                    if k == 0:
+                        usr_msg = question + " " + ans_list[0]
+                    else:
+                        usr_msg = ans_list[k]
+                    messages.append({"role": "user", "content": usr_msg})
+                    messages.append({"role": "assistant", "content": "<|*|>"})
+
+                conversation_str = self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=False
+                )
+                input_ids = self.tokenizer.encode(
+                    conversation_str, return_tensors="pt"
+                ).to(self.model.device)
+
+                with torch.no_grad():
+                    outputs = self.model(input_ids=input_ids)
+
+                token_masks = input_ids == step_sep_id
+                step_rewards = self.make_step_rewards(outputs[0], token_masks)
+                all_step_scores.append(step_rewards[0])
+
+            all_scores.append(all_step_scores)
+        return all_scores
+
+    def _score_batched(self, questions: list[str], outputs: list[list[str]], batch_size: int = 2):
+        DEFAULT_SYSTEM_PROMPT = """You are a strict mathematical reasoning judge.
+
+        Your task is to evaluate one individual reasoning step of a math problem at a time.
+
+        - If the step is mathematically correct, respond with `+`.  
+        - If the step is mathematically incorrect or logically flawed, respond with `-`.  
+        - Do not provide any explanation, comment, or feedback — only respond with `+` or `-`, and nothing else.  
+        - Each input is either a single reasoning step or a new problem followed by its first reasoning step. In both cases, evaluate only the validity of the reasoning step.
+        - For each new problem, once you determine that a step is incorrect, you must consider all subsequent steps for that problem to also be incorrect, and respond with `-` for them as well.
+
+        Your response must only be one of these two symbols: `+` or `-`.
+        """
+
+        step_sep_id = self.tokenizer.encode("<|*|>")[0]
+        conversations = []
+        answers_per_question = []
+
+        for question, answers in zip(questions, outputs, strict=True):
+            num_answers = len(answers)
+            answers_per_question.append(num_answers)
+            for ans in answers:
+                messages = [
+                    {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
+                ]
+                ans_list = ans.split("\n\n")
+                for k in range(len(ans_list)):
+                    if k == 0:
+                        usr_msg = question + " " + ans_list[0]
+                    else:
+                        usr_msg = ans_list[k]
+                    messages.append({"role": "user", "content": usr_msg})
+                    messages.append({"role": "assistant", "content": "<|*|>"})
+
+                conversations.append(messages)
+
+        output_scores = []
+        for i in range(0, len(conversations), batch_size):
+            convs_batch = conversations[i : i + batch_size]
+            processed_responses = [
+                self.tokenizer.apply_chat_template(
+                    conv, tokenize=False, add_generation_prompt=False
+                )
+                for conv in convs_batch
+            ]
+
+            # ISSUE: cannot use `.encode()` since processed_responses is a list of strings
+            # Still, setting truncation as True is fine since the actual answers do not exceed the max_tokens set in the config
+            input_ids = self.tokenizer(
+                processed_responses, return_tensors="pt", padding=True
+            )["input_ids"].to(self.model.device)
+
+            with torch.no_grad():
+                # ISSUE: in the forward method, the hidden states within the autocast needed to be explicitly cast to float32
+                model_outputs = self.model(input_ids=input_ids)
+
+            token_masks = input_ids == step_sep_id
+            step_rewards = self.make_step_rewards(model_outputs[0], token_masks)
+            output_scores.extend(step_rewards)
+
+        # reshape the output scores to match the input
+        reshaped_output_scores = []
+        idx = 0
+        for num_answers in answers_per_question:
+            reshaped_output_scores.append(output_scores[idx:idx + num_answers])
+            idx += num_answers
+
+        return reshaped_output_scores
+
+    @staticmethod
+    def make_step_rewards(logits, token_masks):
+        probabilities = F.softmax(logits, dim=-1)
+        probabilities = probabilities * token_masks.unsqueeze(-1)  # bs, seq_len, num_labels
+
+        all_scores_res = []
+        for i in range(probabilities.size(0)):
+            sample = probabilities[i]  # seq_len, num_labels
+            positive_probs = sample[sample != 0].view(-1, 2)[:, 0]  # valid_tokens, num_labels
+            non_zero_elements_list = positive_probs.cpu().tolist()
+            all_scores_res.append(non_zero_elements_list)
+        return all_scores_res
 
 def load_prm(config: Config) -> PRM:
     if config.prm_path == "peiyi9979/math-shepherd-mistral-7b-prm":
@@ -439,5 +602,8 @@ def load_prm(config: Config) -> PRM:
 
     if config.prm_path == "Qwen/Qwen2.5-Math-PRM-7B":
         return Qwen_2_5_Math_7B(config)
+
+    if config.prm_path == "agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters":
+        return UPRM(config)
 
     raise NotImplementedError(f"PRM {config.prm_path} not implemented")

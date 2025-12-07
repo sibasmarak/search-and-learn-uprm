@@ -8,3 +8,4 @@ n: 4
 search_batch_size: 1  # DO NOT CHANGE!
 num_samples: 10       # REMOVE THIS LINE TO RUN ON THE WHOLE DATASET
 seed: 0
+system_prompt: Please reason step by step, and put your final answer within \\boxed{}.
