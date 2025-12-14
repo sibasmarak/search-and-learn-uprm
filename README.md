@@ -51,8 +51,21 @@ To run the code in this project, first, create a Python virtual environment usin
 conda create -n sal python=3.11 && conda activate sal
 ```
 
+Customizations:
+
 ```shell
-pip install -e '.[dev]'
+pip install torch==2.9.0 torchvision==0.24.0 torchaudio==2.9.0 --index-url https://download.pytorch.org/whl/cu126
+pip install vllm==0.12.0
+pip install transformers==4.57.1
+pip install flash-attn -U --no-build-isolation
+pip install datasets
+pip install flashinfer-python
+pip install peft
+pip install torch-c-dlpack-ext
+```
+
+```shell
+pip install -e '.[quality, tests]'
 ```
 
 Next, log into your Hugging Face account as follows:
@@ -114,3 +127,78 @@ Please also cite the original work by DeepMind upon which this repo is based:
 }
 ```
 
+# Additional commands for running on CSCS
+
+On CSCS clusters, one can run a policy LLM up to Qwen2.5-14B-Instruct along with a uPRM up to Qwen2.5-14B-Instruct-uPRM-T80-adapters. The code to handle larger policy models would be handled soon in the future. The following commands (also available in `commands.sh`) are useful for running on CSCS:
+
+## Running Best-of-N Search
+
+Launch a Best-of-N search job using the Qwen2.5-14B-Instruct model:
+
+```bash
+sbatch recipes/launch_array.slurm recipes/Qwen2.5-14B-Instruct/best_of_n.yaml \
+    --n=256 \
+    --seed=2 \
+    --num_samples=500 \
+    --prm_path=agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters \
+    --prm_batch_size=4 \
+    --search_batch_size=5 \
+    --gpu_memory_utilization=0.5
+```
+**Note**: The PRM batch size does not generally affect the speed of the search, but important to maintain the memory utilization of the GPU. For example, if PRM batch size is set to 2 or 16, there is not much difference in the speed of the search, but the memory utilization of the GPU is significantly higher.
+
+## Running Diverse Verifier Tree Search (DVTS)
+
+Launch a DVTS job using the Qwen2.5-7B-Instruct model:
+
+```bash
+sbatch recipes/launch_array.slurm recipes/Qwen2.5-7B-Instruct/dvts.yaml \
+    --n=256 \
+    --seed=2 \
+    --num_samples=500 \
+    --prm_path=agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters \
+    --prm_batch_size=2 \
+    --search_batch_size=5 \
+    --gpu_memory_utilization=0.5
+```
+
+## Merging Dataset Revisions on Hugging Face Hub
+
+Merge dataset revisions from the Hugging Face Hub by filtering specific revisions:
+
+```bash
+python scripts/merge_chunks.py \
+    --dataset_name=sibasmarakp/Llama-3.2-1B-Instruct-best_of_n-completions \
+    --filter_strings seed-0
+```
+
+## Merging Local Dataset Chunks and Pushing to Hugging Face Hub
+
+Merge local dataset chunks and push the merged dataset to the Hugging Face Hub (you would need to change the data_completions_dir which contains the completions of the search and the seed along with the repo_id):
+
+```bash
+python scripts/merge_local_chunks.py \
+    --data_completions_dir /capstor/scratch/cscs/spanigra/search_and_learn/data/Qwen2.5-1.5B-Instruct/Qwen2.5-14B-Instruct-uPRM-T80-adapters/seed-0-dvts \
+    --seed 0 \
+    --repo_id sibasmarakp/Qwen2.5-1.5B-Instruct-dvts-completions \
+    --split train \
+    --expected_num_samples 500
+```
+The expected number of samples is the number of samples in the dataset (for MATH-500, it is 500).
+## Evaluating Results
+
+Evaluate completion results using the Qwen2.5-Math evaluation script:
+
+```bash
+export DATASET_ID=sibasmarakp/Qwen2.5-1.5B-Instruct-dvts-completions
+export DATASET_CONFIG=HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-0--agg_strategy-last 
+export VOTING_N="1 2 4 8 16 32 64 128 256"
+
+cd Qwen2.5-Math
+python evaluation/evaluate_hf.py \
+    --dataset_id $DATASET_ID \
+    --dataset_config $DATASET_CONFIG \
+    --voting_n $VOTING_N
+```
+
+**Note**: one of the most important arguments to control the memory utilization of the GPU is `--gpu_memory_utilization`, which is used to control the memory utilization of the GPU. For Qwen2.5-14B-Instruct, the value is 0.5. For Qwen2.5-7B-Instruct, the value is 0.3. For smaller models, the value can be set to 0.15 to save memory and fit the PRM also on the same GPU.

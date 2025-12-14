@@ -114,7 +114,7 @@ def _dvts(batch_of_prompts: list[str], config: Config, llm: LLM, prm: PRM):
 
         # scoring and chose best generation per beam TODO: add option for selection across beams within the same prompt
 
-        all_scores = prm.score(prompts, completions)
+        all_scores = prm.score(prompts, completions, batch_size=config.prm_batch_size)
 
         for beam, scores in zip(gen_beams, all_scores, strict=True):
             agg_scores = [aggregate_scores(s, config.agg_strategy) for s in scores]

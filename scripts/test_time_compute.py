@@ -44,7 +44,7 @@ def main():
 
     approach_fn = APPROACHES[config.approach]
 
-    num_gpus = torch.cuda.device_count()
+    num_gpus = config.tensor_parallel_size
     llm = LLM(
         model=config.model_path,
         gpu_memory_utilization=config.gpu_memory_utilization,

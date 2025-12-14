@@ -1,0 +1,6 @@
+[submodule "external/Qwen2.5-Math"]
+	path = external/Qwen2.5-Math
+	url = https://github.com/huggingface/Qwen2.5-Math.git
+[submodule "Qwen2.5-Math"]
+	path = Qwen2.5-Math
+	url = https://github.com/huggingface/Qwen2.5-Math.git

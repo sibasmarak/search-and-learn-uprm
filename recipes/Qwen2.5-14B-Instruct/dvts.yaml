@@ -1,11 +1,9 @@
 # refer to src/sal/config.py for more options
 
-model_path: Qwen/Qwen2.5-1.5B-Instruct
+model_path: Qwen/Qwen2.5-14B-Instruct
 custom_chat_template: null
-approach: best_of_n
+approach: dvts
 n: 4
 search_batch_size: 25
-sort_completed: true
-filter_duplicates: true
 seed: 0
 system_prompt: Please reason step by step, and put your final answer within \\boxed{}.

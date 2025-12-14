@@ -505,7 +505,7 @@ class UPRM(PRM):
             all_scores.append(all_step_scores)
         return all_scores
 
-    def _score_batched(self, questions: list[str], outputs: list[list[str]], batch_size: int = 2):
+    def _score_batched(self, questions: list[str], outputs: list[list[str]], batch_size: int):
         DEFAULT_SYSTEM_PROMPT = """You are a strict mathematical reasoning judge.
 
         Your task is to evaluate one individual reasoning step of a math problem at a time.
@@ -552,18 +552,20 @@ class UPRM(PRM):
             ]
 
             # ISSUE: cannot use `.encode()` since processed_responses is a list of strings
-            # Still, setting truncation as True is fine since the actual answers do not exceed the max_tokens set in the config
             input_ids = self.tokenizer(
                 processed_responses, return_tensors="pt", padding=True
             )["input_ids"].to(self.model.device)
 
             with torch.no_grad():
-                # ISSUE: in the forward method, the hidden states within the autocast needed to be explicitly cast to float32
                 model_outputs = self.model(input_ids=input_ids)
 
             token_masks = input_ids == step_sep_id
             step_rewards = self.make_step_rewards(model_outputs[0], token_masks)
             output_scores.extend(step_rewards)
+            
+            # Clean up GPU memory after each batch
+            del input_ids, model_outputs, token_masks
+            torch.cuda.empty_cache()
 
         # reshape the output scores to match the input
         reshaped_output_scores = []
@@ -578,12 +580,15 @@ class UPRM(PRM):
     def make_step_rewards(logits, token_masks):
         probabilities = F.softmax(logits, dim=-1)
         probabilities = probabilities * token_masks.unsqueeze(-1)  # bs, seq_len, num_labels
+        
+        # Move to CPU early to free GPU memory
+        probabilities = probabilities.cpu()
 
         all_scores_res = []
         for i in range(probabilities.size(0)):
             sample = probabilities[i]  # seq_len, num_labels
             positive_probs = sample[sample != 0].view(-1, 2)[:, 0]  # valid_tokens, num_labels
-            non_zero_elements_list = positive_probs.cpu().tolist()
+            non_zero_elements_list = positive_probs.tolist()
             all_scores_res.append(non_zero_elements_list)
         return all_scores_res
 

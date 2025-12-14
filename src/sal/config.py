@@ -29,6 +29,7 @@ class Config:
         0.5  # vllm is allocated 0.5 of GPU memory, the PRM uses the rest
     )
     prm_path: str = "RLHFlow/Llama3.1-8B-PRM-Deepseek-Data"
+    tensor_parallel_size: int = 1
     # Output Related Options
     output_dir: str = None
     num_proc: int = None
