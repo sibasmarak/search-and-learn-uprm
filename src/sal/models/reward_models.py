@@ -608,7 +608,7 @@ def load_prm(config: Config) -> PRM:
     if config.prm_path == "Qwen/Qwen2.5-Math-PRM-7B":
         return Qwen_2_5_Math_7B(config)
 
-    if config.prm_path == "agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters":
+    if config.prm_path in ["agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters", "agadetskii/Qwen2.5-14B-Instruct-uPRM-ContinuedMathShepherd-adapters"]:
         return UPRM(config)
 
     raise NotImplementedError(f"PRM {config.prm_path} not implemented")

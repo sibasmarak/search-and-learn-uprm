@@ -81,13 +81,16 @@ def best_of_n(x, config: Config, llm: LLM, prm: PRM):
         if len(c) != config.n:
             raise ValueError(f"Generated {len(c)} completions instead of {config.n}")
 
-    scores = prm.score(x["problem"], completions, batch_size=config.prm_batch_size)
-    agg_scores = [
-        [aggregate_scores(s, config.agg_strategy) for s in score] for score in scores
-    ]
-
-    # Select the completion with the highest score
-    pred = [completion[np.argmax(s)] for completion, s in zip(completions, agg_scores)]
+    if prm is not None:
+        scores = prm.score(x["problem"], completions, batch_size=config.prm_batch_size)
+        agg_scores = [
+            [aggregate_scores(s, config.agg_strategy) for s in score] for score in scores
+        ]
+        # Select the completion with the highest score
+        pred = [completion[np.argmax(s)] for completion, s in zip(completions, agg_scores)]
+    else:
+        scores = [[[1.0]] for _ in range(len(x["problem"]))]
+        pred = [completion[0] for completion in completions]
 
     x["completions"] = completions
     x["scores"] = scores

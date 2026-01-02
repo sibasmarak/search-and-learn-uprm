@@ -120,6 +120,12 @@ def main() -> None:
         default="last",
         help="Aggregation strategy to use (options: last, min, prod)",
     )
+    ap.add_argument(
+        "--temperature",
+        type=float,
+        default=0.8,
+        help="Temperature to use for the dataset",
+    )
     args = ap.parse_args()
 
     chunks = find_chunks(args.data_completions_dir, args.filename)
@@ -140,7 +146,7 @@ def main() -> None:
     # Push: use config_name = seed if provided, else 'default'
     cols = [col for col in ds.column_names if "pred_maj@" in col]
     n = max(int(col.split("@")[-1]) for col in cols)
-    config_name = f"{args.dataset_name}--T-0.8--top_p-1.0--n-{n}--seed-{args.seed}--agg_strategy-{args.agg_strategy}"
+    config_name = f"{args.dataset_name}--T-{args.temperature}--top_p-1.0--n-{n}--seed-{args.seed}--agg_strategy-{args.agg_strategy}"
     print(f"Pushing to: {config_name}")
 
     url = ds.push_to_hub(

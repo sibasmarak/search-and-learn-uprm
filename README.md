@@ -131,7 +131,7 @@ Please also cite the original work by DeepMind upon which this repo is based:
 
 On CSCS clusters, one can run a policy LLM up to Qwen2.5-14B-Instruct along with a uPRM up to Qwen2.5-14B-Instruct-uPRM-T80-adapters. The code to handle larger policy models would be handled soon in the future. The following commands (also available in `commands.sh`) are useful for running on CSCS:
 
-## Running Best-of-N Search
+## Running Best-of-N Search/DVTS
 
 Launch a Best-of-N search job using the Qwen2.5-14B-Instruct model:
 
@@ -143,24 +143,10 @@ sbatch recipes/launch_array.slurm recipes/Qwen2.5-14B-Instruct/best_of_n.yaml \
     --prm_path=agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters \
     --prm_batch_size=4 \
     --search_batch_size=5 \
-    --gpu_memory_utilization=0.5
+    --gpu_memory_utilization=0.5 \
+    --tensor_parallel_size=1
 ```
-**Note**: The PRM batch size does not generally affect the speed of the search, but important to maintain the memory utilization of the GPU. For example, if PRM batch size is set to 2 or 16, there is not much difference in the speed of the search, but the memory utilization of the GPU is significantly higher.
-
-## Running Diverse Verifier Tree Search (DVTS)
-
-Launch a DVTS job using the Qwen2.5-7B-Instruct model:
-
-```bash
-sbatch recipes/launch_array.slurm recipes/Qwen2.5-7B-Instruct/dvts.yaml \
-    --n=256 \
-    --seed=2 \
-    --num_samples=500 \
-    --prm_path=agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters \
-    --prm_batch_size=2 \
-    --search_batch_size=5 \
-    --gpu_memory_utilization=0.5
-```
+**Note**: The PRM batch size does not generally affect the speed of the search, but important to maintain the memory utilization of the GPU. For example, if PRM batch size is set to 2 or 16, there is not much difference in the speed of the search, but the memory utilization of the GPU is significantly higher. More information and examples are available in `commands.sh`. Set the `--tensor_parallel_size` to the number of GPUs you are using. Use the `--dataset_config=OE_TO_maths_en_COMP` for OlympiadBench as we evaluate on the Text-Only version of the dataset, and `--dataset_split=train` as per the datasets.
 
 ## Merging Dataset Revisions on Hugging Face Hub
 
@@ -180,11 +166,12 @@ Merge local dataset chunks and push the merged dataset to the Hugging Face Hub (
 python scripts/merge_local_chunks.py \
     --data_completions_dir /capstor/scratch/cscs/spanigra/search_and_learn/data/Qwen2.5-1.5B-Instruct/Qwen2.5-14B-Instruct-uPRM-T80-adapters/seed-0-dvts \
     --seed 0 \
+    --temperature 0.8 \
     --repo_id sibasmarakp/Qwen2.5-1.5B-Instruct-dvts-completions \
     --split train \
     --expected_num_samples 500
 ```
-The expected number of samples is the number of samples in the dataset (for MATH-500, it is 500).
+The expected number of samples is the number of samples in the dataset (for MATH-500, it is 500, for OlympiadBench, it is 674).
 ## Evaluating Results
 
 Evaluate completion results using the Qwen2.5-Math evaluation script:
@@ -198,7 +185,16 @@ cd Qwen2.5-Math
 python evaluation/evaluate_hf.py \
     --dataset_id $DATASET_ID \
     --dataset_config $DATASET_CONFIG \
-    --voting_n $VOTING_N
+    --voting_n $VOTING_N \
+    --benchmark math
 ```
 
-**Note**: one of the most important arguments to control the memory utilization of the GPU is `--gpu_memory_utilization`, which is used to control the memory utilization of the GPU. For Qwen2.5-14B-Instruct, the value is 0.5. For Qwen2.5-7B-Instruct, the value is 0.3. For smaller models, the value can be set to 0.15 to save memory and fit the PRM also on the same GPU.
+**Note**: one of the most important arguments to control the memory utilization of the GPU is `--gpu_memory_utilization`, which is used to control the memory utilization of the GPU. For Qwen2.5-14B-Instruct, the value is 0.5. For Qwen2.5-7B-Instruct, the value is 0.3. For smaller models, the value can be set to 0.15 to save memory and fit the PRM also on the same GPU. `--benchmark` should be set to `olympiadbench` or `aime24` to evaluate the math problems in OlympiadBench or AIME-2024 respectively.
+
+## Evaluating Results on Multi-Node
+A few important notes about multi-node evaluation, it is currently setup, and works for larger models such as 70B and above in zero-shot (temperature = 0.0). However, vLLM has some issues with Llama-3.1 405B Instruct, and there is an error about `KeyError: 'model.layers.63.self_attn.attn'` (from my understanding, it is vLLM side issue).
+
+## Tested datasets:
+- [MATH-500](https://huggingface.co/datasets/HuggingFaceH4/MATH-500)
+- [OlympiadBench](https://huggingface.co/datasets/Hothan/OlympiadBench)
+- [AIME-2024](https://huggingface.co/datasets/HuggingFaceH4/aime_2024)

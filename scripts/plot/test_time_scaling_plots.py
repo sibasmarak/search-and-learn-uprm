@@ -7,24 +7,43 @@ from matplotlib.ticker import ScalarFormatter
 
 # Name of your dataset
 repo_ids = [
-    "sibasmarakp/Llama-3.2-1B-Instruct-dvts-completions",
-    "sibasmarakp/Qwen2.5-1.5B-Instruct-dvts-completions",
-    "sibasmarakp/Llama-3.2-1B-Instruct-best_of_n-completions",
-    "sibasmarakp/Qwen2.5-1.5B-Instruct-best_of_n-completions",
+    # "sibasmarakp/Llama-3.2-1B-Instruct-dvts-completions",
+    # "sibasmarakp/Llama-3.1-8B-Instruct-dvts-completions",
+    # "sibasmarakp/Qwen2.5-1.5B-Instruct-dvts-completions",
+    # "sibasmarakp/Qwen2.5-7B-Instruct-dvts-completions",
+    "sibasmarakp/Qwen2.5-14B-Instruct-dvts-completions",
+    "sibasmarakp/Qwen2.5-14B-Instruct-uPRM-ContinuedMathShepherd-adapters-dvts-completions",
+    # "sibasmarakp/Llama-3.2-1B-Instruct-best_of_n-completions",
+    # "sibasmarakp/Llama-3.1-8B-Instruct-best_of_n-completions",
+    # "sibasmarakp/Qwen2.5-1.5B-Instruct-best_of_n-completions",
+    # "sibasmarakp/Qwen2.5-7B-Instruct-best_of_n-completions",
+    "sibasmarakp/Qwen2.5-14B-Instruct-best_of_n-completions",
+    "sibasmarakp/Qwen2.5-14B-Instruct-uPRM-ContinuedMathShepherd-adapters-best_of_n-completions",
 ]
 
 # List of seed eval subset names
 seed_subsets = [
     "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-0--agg_strategy-last--evals",
     "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-1--agg_strategy-last--evals",
-    "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-2--agg_strategy-last--evals"
+    "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-2--agg_strategy-last--evals",
+    # "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-0--agg_strategy-min--evals",
+    # "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-1--agg_strategy-min--evals",
+    # "HuggingFaceH4_MATH-500--T-0.8--top_p-1.0--n-256--seed-2--agg_strategy-min--evals"
 ]
 
 map_repo_id_to_policy = {
     "sibasmarakp/Llama-3.2-1B-Instruct-dvts-completions": "Llama-3.2-1B-Instruct",
+    "sibasmarakp/Llama-3.1-8B-Instruct-dvts-completions": "Llama-3.1-8B-Instruct",
     "sibasmarakp/Qwen2.5-1.5B-Instruct-dvts-completions": "Qwen2.5-1.5B-Instruct",
+    "sibasmarakp/Qwen2.5-7B-Instruct-dvts-completions": "Qwen2.5-7B-Instruct",
+    "sibasmarakp/Qwen2.5-14B-Instruct-dvts-completions": "Qwen2.5-14B-Instruct",
+    "sibasmarakp/Qwen2.5-14B-Instruct-uPRM-ContinuedMathShepherd-adapters-dvts-completions": "Qwen2.5-14B-Instruct",
     "sibasmarakp/Llama-3.2-1B-Instruct-best_of_n-completions": "Llama-3.2-1B-Instruct",
+    "sibasmarakp/Llama-3.1-8B-Instruct-best_of_n-completions": "Llama-3.1-8B-Instruct",
     "sibasmarakp/Qwen2.5-1.5B-Instruct-best_of_n-completions": "Qwen2.5-1.5B-Instruct",
+    "sibasmarakp/Qwen2.5-7B-Instruct-best_of_n-completions": "Qwen2.5-7B-Instruct",
+    "sibasmarakp/Qwen2.5-14B-Instruct-best_of_n-completions": "Qwen2.5-14B-Instruct",
+    "sibasmarakp/Qwen2.5-14B-Instruct-uPRM-ContinuedMathShepherd-adapters-best_of_n-completions": "Qwen2.5-14B-Instruct",
 }
 
 dfs = []
@@ -36,7 +55,6 @@ for repo_id in repo_ids:
         df["policy"] = map_repo_id_to_policy[repo_id]
         df["test_time_approach"] = repo_id.split("-")[-2]
         dfs.append(df)
-
 combined_df = pd.concat(dfs, ignore_index=True)
 
 
@@ -57,12 +75,28 @@ def _format_pow_two_ticks(axis, values):
     axis.get_xaxis().set_major_formatter(ScalarFormatter())
 
 # Zero-shot reference lines
-zero_shot_refs = [
-    ("Llama 3.1 8B", 49.8),
+zero_shot_refs = {"Llama-3.2-1B-Instruct": [
     ("Llama 3.2 1B", 26.0),
+    ("Llama 3.1 8B", 49.8),
+], "Qwen2.5-1.5B-Instruct": [
     ("Qwen2.5 1.5B", 54.4),
-    ("Qwen2.5 14B", 80.2)
-]
+    ("Qwen2.5 7B", 76.8),
+    ("Qwen2.5 14B", 80.2),
+], "Qwen2.5-7B-Instruct": [
+    ("Qwen2.5 7B", 76.8),
+    ("Qwen2.5 14B", 80.2),
+    ("Qwen2.5 32B", 82.4),
+    ("Qwen2.5 72B", 83.8),
+], "Qwen2.5-14B-Instruct": [
+    ("Qwen2.5 7B", 76.8),
+    ("Qwen2.5 14B", 80.2),
+    ("Qwen2.5 32B", 82.4),
+    ("Qwen2.5 72B", 83.8),
+], "Llama-3.1-8B-Instruct":[
+    ("Llama 3.1 8B", 49.8),
+    ("Llama 3.1 70B", 65.2),
+    ("Llama 3.1 405B", 71.4),
+]}
 
 # Make one plot per policy
 for policy in combined_df["policy"].unique():
@@ -110,7 +144,7 @@ for policy in combined_df["policy"].unique():
         )
 
     # Zero-shot horizontal dotted lines
-    for label, value in zero_shot_refs:
+    for label, value in zero_shot_refs[policy]:
         ax.axhline(value, linestyle="--", color="black", linewidth=1, alpha=0.7)
         text_transform = ax.get_yaxis_transform()
         ax.text(

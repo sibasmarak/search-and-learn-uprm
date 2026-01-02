@@ -6,25 +6,30 @@
     "configurations": [
 
         {
-            "name": "UPRM Debugger",
+            "name": "UPRM Debugger (CoT)",
             "type": "debugpy",
             "request": "launch",
             "program": "scripts/test_time_compute.py",
             "args": [
-                "recipes/Qwen2.5-1.5B-Instruct/dvts.yaml",
-                "--n=16",
-                "--num_samples=500",
+                "recipes/Qwen2.5-32B-Instruct/best_of_n.yaml",
+                "--n=1",
                 "--seed=0",
                 "--prm_path=agadetskii/Qwen2.5-14B-Instruct-uPRM-T80-adapters",
                 "--prm_batch_size=4",
-                "--search_batch_size=5",
-                "--gpu_memory_utilization=0.15",
-                "--output_dir=/capstor/scratch/cscs/spanigra/search_and_learn/data/Qwen2.5-1.5B-Instruct/Qwen2.5-14B-Instruct-uPRM-T80-adapters",
+                "--search_batch_size=20",
+                "--gpu_memory_utilization=0.8",
+                "--tensor_parallel_size=2",
+                "--temperature=0.0",
+                "--dataset_name=Hothan/OlympiadBench",
+                "--dataset_config=OE_TO_maths_en_COMP",
+                "--dataset_split=train",
+                "--num_samples=10",
+                "--output_dir=/capstor/scratch/cscs/spanigra/search_and_learn/data/OlympiadBench-CoT/Qwen2.5-32B-Instruct/Qwen2.5-14B-Instruct-uPRM-T80-adapters/range-0-674",
             ],
             "console": "integratedTerminal",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "0",
-                "HF_HOME": "/iopsstor/scratch/cscs/spanigra/huggingface"
+                "CUDA_VISIBLE_DEVICES": "0,1",
+                "HF_HOME": "/capstor/scratch/cscs/spanigra/huggingface"
             }
         }
     ]

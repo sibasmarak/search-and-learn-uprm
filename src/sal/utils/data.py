@@ -27,13 +27,26 @@ logger = logging.getLogger()
 
 
 def get_dataset(config: Config) -> Dataset:
-    dataset = load_dataset(config.dataset_name, split=config.dataset_split)
+    dataset = load_dataset(config.dataset_name, name=config.dataset_config, split=config.dataset_split)
 
     if config.dataset_start is not None and config.dataset_end is not None:
         dataset = dataset.select(range(config.dataset_start, config.dataset_end))
     if config.num_samples is not None:
         dataset = dataset.select(range(min(len(dataset), config.num_samples)))
 
+    # these modifications were done to accomodate OlympiadBench dataset
+    # if dataset doesn't have a column "problem", modify "question" to "problem"
+    # if dataset doesn't have a column "answer", modify "final_answer" to "answer"
+    if "problem" not in dataset.column_names:
+        if "question" in dataset.column_names:
+            dataset = dataset.rename_column("question", "problem")
+        else:
+            raise ValueError("Dataset does not have a column 'problem' or 'question'")
+    if "answer" not in dataset.column_names:
+        if "final_answer" in dataset.column_names:
+            dataset = dataset.rename_column("final_answer", "answer")
+        else:
+            raise ValueError("Dataset does not have a column 'answer' or 'final_answer'")
     return dataset
 
 

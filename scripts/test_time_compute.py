@@ -51,8 +51,13 @@ def main():
         enable_prefix_caching=True,
         seed=config.seed,
         tensor_parallel_size=num_gpus,
+
+        # arguments for multi-node TTS
+        # pipeline_parallel_size=4, # number of nodes
+        # distributed_executor_backend="ray",
+        # dtype="bfloat16",
     )
-    prm = load_prm(config)
+    prm = load_prm(config) if config.temperature != 0.0 else None
 
     dataset = get_dataset(config)
     dataset = dataset.map(
