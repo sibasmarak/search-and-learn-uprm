@@ -198,3 +198,6 @@ A few important notes about multi-node evaluation, it is currently setup, and wo
 - [MATH-500](https://huggingface.co/datasets/HuggingFaceH4/MATH-500)
 - [OlympiadBench](https://huggingface.co/datasets/Hothan/OlympiadBench)
 - [AIME-2024](https://huggingface.co/datasets/HuggingFaceH4/aime_2024)
+
+## Information on the results
+The results are stored in the `results` directory for each dataset. In my opinion, AIME-2024 is very small and the results are not very well interpretable, i.e., one change will lead to 3.33% change in accuracy, and by default the performance is very low. The results with ContinuedMathShepherd versions are available for OlympiadBench and MATH-500, there is not much difference with the original version. The aggregation strategy of `min` is used for MATH-500, but again, not so much difference. And finally, DVTS is better for smaller models, but weighted Best-of-N is better for larger models.
